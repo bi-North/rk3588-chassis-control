@@ -4,10 +4,10 @@ Fill this table after `test_single_motor` validation.
 
 | CAN Feedback ID | Motor ID | Physical Wheel | Positive Current Direction | Need Invert |
 | --- | --- | --- | --- | --- |
-| 0x201 | 1 | TBD | TBD | TBD |
-| 0x202 | 2 | TBD | TBD | TBD |
-| 0x203 | 3 | TBD | TBD | TBD |
-| 0x204 | 4 | TBD | TBD | TBD |
+| 0x201 | 1 | LD  | F   |  |
+| 0x202 | 2 | LU  | F   |  |
+| 0x203 | 3 | RD  | B   |  |
+| 0x204 | 4 | RU  | B   |  |
 
 Original STM32 chassis assumption:
 
