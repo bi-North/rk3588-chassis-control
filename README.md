@@ -91,6 +91,23 @@ If the motor direction is opposite to the expected direction, record it in
 `docs/motor_mapping.md`. Do not fix signs blindly before all four motors are
 mapped.
 
+## Auto Tune Speed PID
+
+After `test_speed_pid` works, you can sweep `Kp/Ki` automatically:
+
+```bash
+python3 ../tools/autotune_speed_pid.py \
+  --exe ./test_speed_pid \
+  --ifname can0 \
+  --motor 4 \
+  --target -300 \
+  --duration-ms 5000 \
+  --kp 2.0 3.0 0.2 \
+  --ki 0.2 0.6 0.1
+```
+
+See `docs/autotune_speed_pid.md` for thresholds and safety notes.
+
 ## Record Results
 
 After testing, fill in `docs/motor_mapping.md`:
