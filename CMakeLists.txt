@@ -9,6 +9,7 @@ set(CMAKE_C_EXTENSIONS ON)
 add_library(chassis_core
     src/socketcan.c
     src/motor_3508.c
+    src/pid.c
 )
 
 target_include_directories(chassis_core PUBLIC
@@ -32,3 +33,9 @@ add_executable(test_single_motor
 )
 target_link_libraries(test_single_motor PRIVATE chassis_core)
 target_compile_options(test_single_motor PRIVATE -Wall -Wextra -Wpedantic)
+
+add_executable(test_speed_pid
+    tools/test_speed_pid.c
+)
+target_link_libraries(test_speed_pid PRIVATE chassis_core)
+target_compile_options(test_speed_pid PRIVATE -Wall -Wextra -Wpedantic)

@@ -66,6 +66,31 @@ Lift the chassis before sending non-zero current.
 
 The tool sends current commands every 10 ms by default and sends zero current on exit.
 
+## Single Motor Speed PID Test
+
+Lift the chassis before running closed-loop speed control.
+
+```bash
+# iface motor_id target_rpm duration_ms [kp ki kd] [period_ms]
+./test_speed_pid can0 1 500 5000
+./test_speed_pid can0 1 -500 5000
+```
+
+Default parameters:
+
+```text
+period_ms = 10
+kp = 1.80
+ki = 0.00
+kd = 0.00
+current limit = +/-6500
+target limit = +/-3800 rpm
+```
+
+If the motor direction is opposite to the expected direction, record it in
+`docs/motor_mapping.md`. Do not fix signs blindly before all four motors are
+mapped.
+
 ## Record Results
 
 After testing, fill in `docs/motor_mapping.md`:
