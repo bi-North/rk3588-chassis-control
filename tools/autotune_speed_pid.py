@@ -140,8 +140,14 @@ def evaluate_trial(
 
 
 def run_trial(args: argparse.Namespace, kp: float, ki: float) -> tuple[TrialResult, str]:
+    exe = args.exe
+    if not exe.is_absolute() and exe.parent != Path("."):
+        exe = exe.resolve()
+    elif not exe.is_absolute() and str(exe).startswith("."):
+        exe = exe.resolve()
+
     command = [
-        str(args.exe),
+        str(exe),
         args.ifname,
         str(args.motor),
         str(args.target),
@@ -205,6 +211,11 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
+
+    exe = args.exe
+    if not exe.is_absolute() and str(exe).startswith("."):
+        exe = exe.resolve()
+    args.exe = exe
 
     if not args.exe.exists():
         print(f"error: executable not found: {args.exe}", file=sys.stderr)

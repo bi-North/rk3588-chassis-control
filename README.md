@@ -108,6 +108,21 @@ python3 ../tools/autotune_speed_pid.py \
 
 See `docs/autotune_speed_pid.md` for thresholds and safety notes.
 
+To tune several motors and directions in one run:
+
+```bash
+python3 ../tools/batch_autotune_speed_pid.py \
+  --exe "$(pwd)/test_speed_pid" \
+  --ifname can0 \
+  --motors 1,2,3 \
+  --targets 300,-300 \
+  --duration-ms 8000 \
+  --kp 2.0 3.2 0.2 \
+  --ki 0.3 0.9 0.1
+```
+
+See `docs/batch_autotune_speed_pid.md`.
+
 ## Record Results
 
 After testing, fill in `docs/motor_mapping.md`:
