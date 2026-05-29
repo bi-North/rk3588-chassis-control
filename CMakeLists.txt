@@ -10,11 +10,16 @@ add_library(chassis_core
     src/socketcan.c
     src/motor_3508.c
     src/pid.c
+    src/chassis_control.c
 )
 
 target_include_directories(chassis_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
+
+if(UNIX)
+    target_link_libraries(chassis_core PUBLIC m)
+endif()
 
 target_compile_options(chassis_core PRIVATE
     -Wall
@@ -39,3 +44,9 @@ add_executable(test_speed_pid
 )
 target_link_libraries(test_speed_pid PRIVATE chassis_core)
 target_compile_options(test_speed_pid PRIVATE -Wall -Wextra -Wpedantic)
+
+add_executable(test_chassis_keyboard
+    tools/test_chassis_keyboard.c
+)
+target_link_libraries(test_chassis_keyboard PRIVATE chassis_core)
+target_compile_options(test_chassis_keyboard PRIVATE -Wall -Wextra -Wpedantic)

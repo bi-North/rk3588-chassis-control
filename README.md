@@ -123,6 +123,26 @@ python3 ../tools/batch_autotune_speed_pid.py \
 
 See `docs/batch_autotune_speed_pid.md`.
 
+## Chassis Keyboard Test
+
+After all four motors have usable PID parameters:
+
+```bash
+./test_chassis_keyboard can0 500 400
+```
+
+Keys:
+
+```text
+w/s forward/backward
+a/d left/right strafe
+q/e rotate left/right
+space stop
+x exit
+```
+
+See `docs/chassis_keyboard_test.md`.
+
 ## Record Results
 
 After testing, fill in `docs/motor_mapping.md`:
