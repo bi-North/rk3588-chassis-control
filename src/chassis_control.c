@@ -48,7 +48,7 @@ static void normalize_wheel_targets(float target[CHASSIS_MOTOR_COUNT + 1U], floa
 
 static void update_targets_from_command(ChassisController *controller)
 {
-    float forward = clamp_float(controller->command.forward, -1.0f, 1.0f) * controller->config.max_translate_rpm;
+    float forward = -clamp_float(controller->command.forward, -1.0f, 1.0f) * controller->config.max_translate_rpm;
     float strafe = clamp_float(controller->command.strafe, -1.0f, 1.0f) * controller->config.max_translate_rpm;
     float rotate = clamp_float(controller->command.rotate, -1.0f, 1.0f) * controller->config.max_rotate_rpm;
 
