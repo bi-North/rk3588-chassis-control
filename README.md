@@ -143,6 +143,20 @@ x exit
 
 See `docs/chassis_keyboard_test.md`.
 
+If the remote desktop or input method does not pass keys into the terminal, use
+the command based chassis test instead:
+
+```bash
+./test_chassis_command can0 forward 0.3 2000 500 400
+./test_chassis_command can0 back 0.3 2000 500 400
+./test_chassis_command can0 left 0.3 2000 500 400
+./test_chassis_command can0 right 0.3 2000 500 400
+./test_chassis_command can0 rotate-left 0.3 2000 500 400
+./test_chassis_command can0 rotate-right 0.3 2000 500 400
+```
+
+Each command runs for the requested duration and then sends zero current.
+
 ## Record Results
 
 After testing, fill in `docs/motor_mapping.md`:

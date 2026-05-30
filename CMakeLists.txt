@@ -50,3 +50,9 @@ add_executable(test_chassis_keyboard
 )
 target_link_libraries(test_chassis_keyboard PRIVATE chassis_core)
 target_compile_options(test_chassis_keyboard PRIVATE -Wall -Wextra -Wpedantic)
+
+add_executable(test_chassis_command
+    tools/test_chassis_command.c
+)
+target_link_libraries(test_chassis_command PRIVATE chassis_core)
+target_compile_options(test_chassis_command PRIVATE -Wall -Wextra -Wpedantic)

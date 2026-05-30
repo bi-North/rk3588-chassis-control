@@ -3,12 +3,10 @@
 #include "socketcan.h"
 
 #include <errno.h>
-#include <fcntl.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <termios.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -17,8 +15,6 @@
 #define ZERO_SEND_REPEAT 20
 
 static volatile sig_atomic_t g_running = 1;
-static struct termios g_original_termios;
-static int g_terminal_configured = 0;
 
 static void handle_signal(int signo)
 {
@@ -41,57 +37,17 @@ static void sleep_ms(int ms)
     nanosleep(&req, NULL);
 }
 
-static void restore_terminal(void)
+static float clamp_float(float value, float min_value, float max_value)
 {
-    if (g_terminal_configured)
+    if (value > max_value)
     {
-        tcsetattr(STDIN_FILENO, TCSANOW, &g_original_termios);
-        g_terminal_configured = 0;
+        return max_value;
     }
-}
-
-static int setup_terminal(void)
-{
-    if (tcgetattr(STDIN_FILENO, &g_original_termios) != 0)
+    if (value < min_value)
     {
-        return -1;
+        return min_value;
     }
-
-    struct termios raw = g_original_termios;
-    raw.c_lflag &= (tcflag_t)~(ICANON | ECHO);
-    raw.c_cc[VMIN] = 0;
-    raw.c_cc[VTIME] = 0;
-
-    if (tcsetattr(STDIN_FILENO, TCSANOW, &raw) != 0)
-    {
-        return -1;
-    }
-
-    int flags = fcntl(STDIN_FILENO, F_GETFL, 0);
-    if (flags < 0)
-    {
-        restore_terminal();
-        return -1;
-    }
-    if (fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK) != 0)
-    {
-        restore_terminal();
-        return -1;
-    }
-
-    g_terminal_configured = 1;
-    return 0;
-}
-
-static int read_key(void)
-{
-    unsigned char key = 0U;
-    ssize_t ret = read(STDIN_FILENO, &key, 1U);
-    if (ret == 1)
-    {
-        return (int)key;
-    }
-    return EOF;
+    return value;
 }
 
 static int send_currents(int can_fd, const int16_t currents[CHASSIS_MOTOR_COUNT + 1U])
@@ -149,12 +105,6 @@ static int wait_for_all_feedback(int can_fd, ChassisController *controller, int 
     return 0;
 }
 
-static void print_usage(const char *program)
-{
-    fprintf(stderr, "Usage: %s <can_ifname> [max_translate_rpm] [max_rotate_rpm]\n", program);
-    fprintf(stderr, "Example: %s can0 500 400\n", program);
-}
-
 static int parse_float_arg(const char *text, float *value)
 {
     char *end = NULL;
@@ -167,74 +117,58 @@ static int parse_float_arg(const char *text, float *value)
     return 1;
 }
 
-static void print_help(void)
+static int parse_int_arg(const char *text, int *value)
 {
-    printf("\nKeyboard chassis test\n");
-    printf("  Hold keys, release to timeout-stop.\n");
-    printf("  w/s: forward/backward\n");
-    printf("  a/d: left/right strafe\n");
-    printf("  q/e: rotate left/right\n");
-    printf("  +/-: adjust speed scale\n");
-    printf("  space: stop now\n");
-    printf("  x: exit\n\n");
+    char *end = NULL;
+    long parsed = strtol(text, &end, 10);
+    if (end == text || *end != '\0')
+    {
+        return 0;
+    }
+    *value = (int)parsed;
+    return 1;
 }
 
-static int handle_key(int key, ChassisController *controller, float *scale, uint64_t now_ms)
+static void print_usage(const char *program)
 {
-    float value = *scale;
+    fprintf(stderr, "Usage: %s <can_ifname> <direction> <scale> <duration_ms> [max_translate_rpm] [max_rotate_rpm]\n", program);
+    fprintf(stderr, "Directions: forward back left right rotate-left rotate-right stop\n");
+    fprintf(stderr, "Example: %s can0 forward 0.3 2000 500 400\n", program);
+}
 
-    switch (key)
+static int command_from_direction(const char *direction, float scale, ChassisCommand *command)
+{
+    command->forward = 0.0f;
+    command->strafe = 0.0f;
+    command->rotate = 0.0f;
+
+    if (strcmp(direction, "forward") == 0 || strcmp(direction, "fwd") == 0)
     {
-        case 'w':
-        case 'W':
-            chassis_set_command(controller, value, 0.0f, 0.0f, now_ms);
-            break;
-        case 's':
-        case 'S':
-            chassis_set_command(controller, -value, 0.0f, 0.0f, now_ms);
-            break;
-        case 'a':
-        case 'A':
-            chassis_set_command(controller, 0.0f, -value, 0.0f, now_ms);
-            break;
-        case 'd':
-        case 'D':
-            chassis_set_command(controller, 0.0f, value, 0.0f, now_ms);
-            break;
-        case 'q':
-        case 'Q':
-            chassis_set_command(controller, 0.0f, 0.0f, value, now_ms);
-            break;
-        case 'e':
-        case 'E':
-            chassis_set_command(controller, 0.0f, 0.0f, -value, now_ms);
-            break;
-        case '+':
-        case '=':
-            *scale += 0.1f;
-            if (*scale > 1.0f)
-            {
-                *scale = 1.0f;
-            }
-            printf("scale=%.2f\n", *scale);
-            break;
-        case '-':
-        case '_':
-            *scale -= 0.1f;
-            if (*scale < 0.1f)
-            {
-                *scale = 0.1f;
-            }
-            printf("scale=%.2f\n", *scale);
-            break;
-        case ' ':
-            chassis_stop(controller, now_ms);
-            break;
-        case 'x':
-        case 'X':
-            return 0;
-        default:
-            break;
+        command->forward = scale;
+    }
+    else if (strcmp(direction, "back") == 0 || strcmp(direction, "backward") == 0)
+    {
+        command->forward = -scale;
+    }
+    else if (strcmp(direction, "left") == 0)
+    {
+        command->strafe = -scale;
+    }
+    else if (strcmp(direction, "right") == 0)
+    {
+        command->strafe = scale;
+    }
+    else if (strcmp(direction, "rotate-left") == 0 || strcmp(direction, "ccw") == 0)
+    {
+        command->rotate = scale;
+    }
+    else if (strcmp(direction, "rotate-right") == 0 || strcmp(direction, "cw") == 0)
+    {
+        command->rotate = -scale;
+    }
+    else if (strcmp(direction, "stop") != 0)
+    {
+        return 0;
     }
 
     return 1;
@@ -242,11 +176,11 @@ static int handle_key(int key, ChassisController *controller, float *scale, uint
 
 static void print_status(const ChassisController *controller,
                          const int16_t currents[CHASSIS_MOTOR_COUNT + 1U],
-                         float scale,
-                         int online)
+                         int online,
+                         int remaining_ms)
 {
-    printf("scale=%.2f online=%d cmd=[%.2f %.2f %.2f] ",
-           scale,
+    printf("remain=%dms online=%d cmd=[%.2f %.2f %.2f] ",
+           remaining_ms,
            online,
            controller->command.forward,
            controller->command.strafe,
@@ -265,7 +199,28 @@ static void print_status(const ChassisController *controller,
 
 int main(int argc, char **argv)
 {
-    if (argc != 2 && argc != 4)
+    if (argc != 5 && argc != 7)
+    {
+        print_usage(argv[0]);
+        return 2;
+    }
+
+    float scale = 0.0f;
+    int duration_ms = 0;
+    if (!parse_float_arg(argv[3], &scale) || !parse_int_arg(argv[4], &duration_ms))
+    {
+        print_usage(argv[0]);
+        return 2;
+    }
+    if (duration_ms <= 0)
+    {
+        fprintf(stderr, "duration_ms must be positive.\n");
+        return 2;
+    }
+    scale = clamp_float(scale, 0.0f, 1.0f);
+
+    ChassisCommand command;
+    if (!command_from_direction(argv[2], scale, &command))
     {
         print_usage(argv[0]);
         return 2;
@@ -273,10 +228,10 @@ int main(int argc, char **argv)
 
     ChassisConfig config;
     chassis_default_config(&config);
-    if (argc == 4)
+    if (argc == 7)
     {
-        if (!parse_float_arg(argv[2], &config.max_translate_rpm) ||
-            !parse_float_arg(argv[3], &config.max_rotate_rpm))
+        if (!parse_float_arg(argv[5], &config.max_translate_rpm) ||
+            !parse_float_arg(argv[6], &config.max_rotate_rpm))
         {
             print_usage(argv[0]);
             return 2;
@@ -305,36 +260,30 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    if (setup_terminal() != 0)
-    {
-        fprintf(stderr, "Failed to configure terminal: %s\n", strerror(errno));
-        send_zero_current(can_fd);
-        socketcan_close(can_fd);
-        return 1;
-    }
-    atexit(restore_terminal);
-
-    print_help();
+    printf("Command test on %s direction=%s scale=%.2f duration=%dms max_translate=%.0f max_rotate=%.0f\n",
+           argv[1],
+           argv[2],
+           scale,
+           duration_ms,
+           config.max_translate_rpm,
+           config.max_rotate_rpm);
+    printf("Lift the chassis or keep the wheels clear. Press Ctrl+C to stop and send zero current.\n");
 
     int16_t currents[CHASSIS_MOTOR_COUNT + 1U] = {0};
-    float scale = 0.4f;
-    uint64_t last_loop_ms = monotonic_ms();
+    uint64_t start_ms = monotonic_ms();
+    uint64_t last_loop_ms = start_ms;
     uint64_t last_print_ms = 0;
 
     while (g_running)
     {
         uint64_t now = monotonic_ms();
-        int key = read_key();
-        while (key != EOF)
+        int elapsed_ms = (int)(now - start_ms);
+        if (elapsed_ms >= duration_ms)
         {
-            if (!handle_key(key, &controller, &scale, now))
-            {
-                g_running = 0;
-                break;
-            }
-            key = read_key();
+            break;
         }
 
+        chassis_set_command(&controller, command.forward, command.strafe, command.rotate, now);
         drain_feedback(can_fd, &controller);
 
         float dt_s = (float)(now - last_loop_ms) / 1000.0f;
@@ -357,17 +306,17 @@ int main(int argc, char **argv)
 
         if ((now - last_print_ms) >= PRINT_PERIOD_MS)
         {
-            print_status(&controller, currents, scale, online);
+            print_status(&controller, currents, online, duration_ms - elapsed_ms);
             last_print_ms = now;
         }
 
         sleep_ms(CONTROL_PERIOD_MS);
     }
 
-    restore_terminal();
     printf("\nSending zero current...\n");
+    chassis_stop(&controller, monotonic_ms());
     send_zero_current(can_fd);
     socketcan_close(can_fd);
-    printf("test_chassis_keyboard stopped.\n");
+    printf("test_chassis_command stopped.\n");
     return 0;
 }
