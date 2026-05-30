@@ -157,6 +157,18 @@ the command based chassis test instead:
 
 Each command runs for the requested duration and then sends zero current.
 
+For the next integration step, use the normalized velocity interface. It accepts
+`forward`, `strafe`, and `rotate` directly:
+
+```bash
+./chassis_velocity can0 0.4 0.0 0.0 3000 500 400
+./chassis_velocity can0 0.0 0.4 0.0 3000 500 400
+./chassis_velocity can0 0.0 0.0 0.3 3000 500 400
+./chassis_velocity can0 0.3 0.2 0.0 3000 500 400
+```
+
+This is the preferred interface for later ROS2 or RT-Thread bridge work.
+
 ## Record Results
 
 After testing, fill in `docs/motor_mapping.md`:
