@@ -20,10 +20,24 @@ sudo modprobe can_raw
 sudo modprobe gs_usb
 
 sudo ip link set can0 down
-sudo ip link set can0 type can bitrate 1000000 restart-ms 100 berr-reporting on
+sudo ip link set can0 type can bitrate 1000000
 sudo ip link set can0 up
 ip -details link show can0
 ```
+
+Optional recovery and diagnostic settings can be tried separately. Some
+USB-CAN adapters or kernel drivers do not support both options:
+
+```bash
+sudo ip link set can0 down
+sudo ip link set can0 type can restart-ms 100
+sudo ip link set can0 type can berr-reporting on
+sudo ip link set can0 up
+```
+
+If either optional command fails, keep the working bitrate configuration and
+continue testing. `restart-ms` enables automatic recovery after a bus-off
+condition. `berr-reporting` enables CAN error frame reporting for diagnostics.
 
 Expected state:
 
