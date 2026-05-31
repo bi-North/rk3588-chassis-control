@@ -4,31 +4,15 @@ Use this procedure after `chassis_daemon` passes the safety validation. It
 measures the minimum normalized command scale that reliably starts the loaded
 chassis.
 
-The measured loaded startup thresholds are:
+The current observation is:
 
 ```text
-forward      0.50
-back         0.50
-left         0.65
-right        0.70
-rotate-left  0.70
-rotate-right 0.70
+scale 0.4 did not reliably start the loaded chassis
+scale 0.8 started the loaded chassis
 ```
 
-After starting at a higher scale, both forward and right movement remained
-stable at scale `0.4`. This indicates a static-friction startup threshold rather
-than insufficient low-speed PID output.
-
-The controller now applies bounded startup compensation:
-
-```text
-minimum requested command: 0.20
-temporary startup scale:    0.75
-duration:                   250 ms
-```
-
-The boost applies only when motion starts from a zero command. It automatically
-expires and does not continuously amplify low-speed commands.
+The goal is to collect a more precise threshold before changing PID parameters
+or adding startup compensation.
 
 ## Start The Daemon With CSV Logging
 

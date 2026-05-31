@@ -31,20 +31,6 @@ static int command_is_zero(const ChassisCommand *command)
            abs_float(command->rotate) < 0.0001f;
 }
 
-static float command_peak(const ChassisCommand *command)
-{
-    float peak = abs_float(command->forward);
-    if (abs_float(command->strafe) > peak)
-    {
-        peak = abs_float(command->strafe);
-    }
-    if (abs_float(command->rotate) > peak)
-    {
-        peak = abs_float(command->rotate);
-    }
-    return peak;
-}
-
 static uint64_t elapsed_ms(uint64_t now_ms, uint64_t previous_ms)
 {
     return (now_ms >= previous_ms) ? (now_ms - previous_ms) : 0U;
@@ -55,7 +41,6 @@ static void reset_motion_state(ChassisController *controller)
     controller->command.forward = 0.0f;
     controller->command.strafe = 0.0f;
     controller->command.rotate = 0.0f;
-    controller->startup_boost_active = 0U;
 
     for (uint8_t i = 1U; i <= CHASSIS_MOTOR_COUNT; ++i)
     {
@@ -86,25 +71,11 @@ static void normalize_wheel_targets(float target[CHASSIS_MOTOR_COUNT + 1U], floa
     }
 }
 
-static void update_targets_from_command(ChassisController *controller, uint64_t now_ms)
+static void update_targets_from_command(ChassisController *controller)
 {
-    float boost = 1.0f;
-    float peak = command_peak(&controller->command);
-    if (controller->startup_boost_active)
-    {
-        if ((float)elapsed_ms(now_ms, controller->startup_boost_start_ms) >= controller->config.startup_boost_ms)
-        {
-            controller->startup_boost_active = 0U;
-        }
-        else if (peak > 0.0f && peak < controller->config.startup_boost_scale)
-        {
-            boost = controller->config.startup_boost_scale / peak;
-        }
-    }
-
-    float forward = -clamp_float(controller->command.forward * boost, -1.0f, 1.0f) * controller->config.max_translate_rpm;
-    float strafe = clamp_float(controller->command.strafe * boost, -1.0f, 1.0f) * controller->config.max_translate_rpm;
-    float rotate = clamp_float(controller->command.rotate * boost, -1.0f, 1.0f) * controller->config.max_rotate_rpm;
+    float forward = -clamp_float(controller->command.forward, -1.0f, 1.0f) * controller->config.max_translate_rpm;
+    float strafe = clamp_float(controller->command.strafe, -1.0f, 1.0f) * controller->config.max_translate_rpm;
+    float rotate = clamp_float(controller->command.rotate, -1.0f, 1.0f) * controller->config.max_rotate_rpm;
 
     /*
      * Wheel layout and signs follow the original STM32 chassis task:
@@ -130,9 +101,6 @@ void chassis_default_config(ChassisConfig *config)
     config->max_rotate_rpm = 400.0f;
     config->command_timeout_ms = 300.0f;
     config->feedback_timeout_ms = 250.0f;
-    config->startup_boost_scale = 0.75f;
-    config->startup_boost_min_command = 0.20f;
-    config->startup_boost_ms = 250.0f;
 }
 
 void chassis_init(ChassisController *controller, const ChassisConfig *config, uint64_t now_ms)
@@ -154,8 +122,6 @@ void chassis_init(ChassisController *controller, const ChassisConfig *config, ui
     controller->command.strafe = 0.0f;
     controller->command.rotate = 0.0f;
     controller->last_command_ms = now_ms;
-    controller->startup_boost_start_ms = now_ms;
-    controller->startup_boost_active = 0U;
 
     for (uint8_t i = 0U; i <= CHASSIS_MOTOR_COUNT; ++i)
     {
@@ -189,24 +155,10 @@ void chassis_set_command(ChassisController *controller,
         return;
     }
 
-    int was_zero = command_is_zero(&controller->command);
     controller->command.forward = clamp_float(forward, -1.0f, 1.0f);
     controller->command.strafe = clamp_float(strafe, -1.0f, 1.0f);
     controller->command.rotate = clamp_float(rotate, -1.0f, 1.0f);
     controller->last_command_ms = now_ms;
-
-    float peak = command_peak(&controller->command);
-    if (command_is_zero(&controller->command))
-    {
-        controller->startup_boost_active = 0U;
-    }
-    else if (was_zero &&
-             peak >= controller->config.startup_boost_min_command &&
-             peak < controller->config.startup_boost_scale)
-    {
-        controller->startup_boost_start_ms = now_ms;
-        controller->startup_boost_active = 1U;
-    }
 }
 
 void chassis_stop(ChassisController *controller, uint64_t now_ms)
@@ -284,7 +236,7 @@ int chassis_step(ChassisController *controller,
         return chassis_feedback_all_online(controller, now_ms);
     }
 
-    update_targets_from_command(controller, now_ms);
+    update_targets_from_command(controller);
 
     if (!chassis_feedback_all_online(controller, now_ms))
     {

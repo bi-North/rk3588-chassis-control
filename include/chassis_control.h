@@ -22,9 +22,6 @@ typedef struct
     float max_rotate_rpm;
     float command_timeout_ms;
     float feedback_timeout_ms;
-    float startup_boost_scale;
-    float startup_boost_min_command;
-    float startup_boost_ms;
 } ChassisConfig;
 
 typedef struct
@@ -35,8 +32,6 @@ typedef struct
     float target_rpm[CHASSIS_MOTOR_COUNT + 1U];
     ChassisCommand command;
     uint64_t last_command_ms;
-    uint64_t startup_boost_start_ms;
-    uint8_t startup_boost_active;
 } ChassisController;
 
 void chassis_default_config(ChassisConfig *config);

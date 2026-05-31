@@ -220,9 +220,6 @@ python3 ../tools/characterize_startup.py forward
 
 See `docs/startup_characterization.md`.
 
-The controller includes bounded startup compensation after the loaded threshold
-measurement. See `docs/startup_compensation_validation.md` for validation.
-
 ## Record Results
 
 After testing, fill in `docs/motor_mapping.md`:
