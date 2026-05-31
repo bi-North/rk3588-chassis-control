@@ -1,0 +1,15 @@
+[Unit]
+Description=RK3588 Linux chassis control daemon
+Requires=rk3588-can.service
+After=rk3588-can.service
+
+[Service]
+Type=simple
+User=@RUN_USER@
+WorkingDirectory=@PROJECT_ROOT@/build
+ExecStart=@PROJECT_ROOT@/build/chassis_daemon can0
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

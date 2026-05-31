@@ -1,0 +1,12 @@
+[Unit]
+Description=Configure RK3588 USB-CAN interface
+After=systemd-modules-load.service
+
+[Service]
+Type=oneshot
+ExecStart=@PROJECT_ROOT@/scripts/setup_can.sh can0 1000000
+ExecStop=/sbin/ip link set can0 down
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

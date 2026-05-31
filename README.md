@@ -220,6 +220,19 @@ python3 ../tools/characterize_startup.py forward
 
 See `docs/startup_characterization.md`.
 
+## Linux Service Installation
+
+After manual daemon validation, configure `can0` automatically and install the
+daemon as a Linux service:
+
+```bash
+sudo ./scripts/setup_can.sh can0 1000000
+sudo ./scripts/install_systemd.sh
+```
+
+The installer does not start the service automatically. See
+`docs/systemd_service.md` for the explicit enable and validation steps.
+
 ## Record Results
 
 After testing, fill in `docs/motor_mapping.md`:
