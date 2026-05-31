@@ -240,3 +240,19 @@ After testing, fill in `docs/motor_mapping.md`:
 - Which physical wheel maps to motor IDs 1 to 4
 - Which direction each wheel rotates for positive current
 - Whether any motor direction needs inversion in software
+
+## RT-Thread Migration
+
+The Linux chassis service is the reference implementation for the next stage.
+Probe the mixed-deployment IPC environment:
+
+```bash
+./scripts/probe_hybrid_ipc.sh
+```
+
+See:
+
+```text
+docs/rtt_migration_plan.md
+docs/rtt_bridge_protocol.md
+```
