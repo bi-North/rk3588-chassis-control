@@ -11,9 +11,11 @@ The provided HyperBoot guide shows:
 - Linux kernel modules `ivshmem-nic.ko` and `ivshmem-uio.ko`
 - A Linux virtual NIC named `enp255s5`
 - A documented Linux-side static IP address `10.10.10.31/24`
+- A reachable RT-Thread peer at `10.10.10.30`
 
-The RT-Thread peer IP address and its application API still need to be
-confirmed from the running image or the `rockchip-hypercar` RT-Thread source.
+The Linux host successfully pinged `10.10.10.30` through `enp255s5` with zero
+packet loss. The RT-Thread application build layout still needs to be confirmed
+from the actual project source before integrating the UDP endpoint.
 
 ## Recommended First Transport
 
@@ -102,10 +104,11 @@ rotate  > 0  rotates left, counterclockwise
 
 ## Next Confirmation
 
-Run:
+Integrate `rtthread_port/rtt_udp_echo.c` into the actual RT-Thread project,
+deploy the image, start `rtt_udp_echo_start` from the RT-Thread shell, and run:
 
 ```bash
-cd ~/projects/rk3588-chassis-control && ./scripts/probe_hybrid_ipc.sh
+cd ~/projects/rk3588-chassis-control && python3 tools/test_rtt_udp_echo.py
 ```
 
-Send the complete output before implementing the live bridge.
+See `docs/rtt_udp_echo_test.md`.

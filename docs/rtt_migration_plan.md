@@ -79,8 +79,8 @@ emergency stop handler
 
 ## Migration Sequence
 
-1. Probe the mixed-deployment virtual NIC and confirm the RT-Thread peer.
-2. Build an echo test over `ivshmem-nic`.
+1. Probe the mixed-deployment virtual NIC and confirm the RT-Thread peer. Done.
+2. Build an echo test over `ivshmem-nic`. In progress.
 3. Send velocity commands from Linux to RT-Thread and verify timeout handling.
 4. Run PID and mecanum kinematics inside RT-Thread without sending CAN frames.
 5. Return computed current commands from RT-Thread to a Linux CAN proxy.
@@ -91,10 +91,10 @@ emergency stop handler
 
 ## Immediate Next Step
 
-Run the environment probe on RK3588:
+Integrate the RT-Thread echo module and run the Linux heartbeat probe:
 
 ```bash
-cd ~/projects/rk3588-chassis-control && ./scripts/probe_hybrid_ipc.sh
+cd ~/projects/rk3588-chassis-control && python3 tools/test_rtt_udp_echo.py
 ```
 
-The output determines the exact RT-Thread bridge implementation.
+See `docs/rtt_udp_echo_test.md`.
