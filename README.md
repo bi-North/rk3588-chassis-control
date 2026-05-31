@@ -204,6 +204,22 @@ control loop and stops the chassis if it receives no new command for 300 ms.
 
 See `docs/chassis_daemon.md`.
 
+## Loaded Startup Characterization
+
+After the daemon safety validation passes, measure the loaded startup threshold:
+
+```bash
+./chassis_daemon can0 127.0.0.1 20001 500 400 ../docs/chassis_daemon_startup.csv
+```
+
+In another terminal:
+
+```bash
+python3 ../tools/characterize_startup.py forward
+```
+
+See `docs/startup_characterization.md`.
+
 ## Record Results
 
 After testing, fill in `docs/motor_mapping.md`:

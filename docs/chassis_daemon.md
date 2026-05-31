@@ -38,7 +38,14 @@ chassis_daemon listening on udp://127.0.0.1:20001 can=can0 max_translate=500 max
 ```
 
 The daemon prints the latest command, command age, wheel target rpm, actual rpm,
-and current command.
+current command, UDP command count, per-motor feedback count, and online drop
+count.
+
+To write a CSV log while the daemon runs:
+
+```bash
+./chassis_daemon can0 127.0.0.1 20001 500 400 ../docs/chassis_daemon_run.csv
+```
 
 ## Send Commands
 
@@ -102,3 +109,6 @@ The UDP protocol is intentionally small. Later work can connect:
 
 The daemon remains responsible for SocketCAN, 3508 feedback handling, speed
 PID, command timeout, and zero-current shutdown.
+
+After the daemon safety validation passes, see `docs/startup_characterization.md`
+for the loaded low-speed startup measurement.

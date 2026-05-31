@@ -21,6 +21,16 @@
 #define DEFAULT_UDP_PORT 20001
 #define UDP_BUFFER_SIZE 128
 
+typedef struct
+{
+    uint64_t start_ms;
+    uint64_t feedback_count[CHASSIS_MOTOR_COUNT + 1U];
+    uint64_t udp_command_count;
+    uint64_t invalid_command_count;
+    uint64_t online_drop_count;
+    int last_online;
+} DaemonStats;
+
 static volatile sig_atomic_t g_running = 1;
 
 static void handle_signal(int signo)
@@ -42,6 +52,11 @@ static void sleep_ms(int ms)
     req.tv_sec = ms / 1000;
     req.tv_nsec = (long)(ms % 1000) * 1000000L;
     nanosleep(&req, NULL);
+}
+
+static uint64_t elapsed_ms(uint64_t now_ms, uint64_t previous_ms)
+{
+    return (now_ms >= previous_ms) ? (now_ms - previous_ms) : 0U;
 }
 
 static int parse_float_arg(const char *text, float *value)
@@ -85,7 +100,7 @@ static void send_zero_current(int can_fd)
     }
 }
 
-static void drain_feedback(int can_fd, ChassisController *controller)
+static void drain_feedback(int can_fd, ChassisController *controller, DaemonStats *stats)
 {
     for (;;)
     {
@@ -103,17 +118,18 @@ static void drain_feedback(int can_fd, ChassisController *controller)
             if (motor3508_parse_feedback(can_id, data, &feedback, monotonic_ms()))
             {
                 chassis_update_feedback(controller, &feedback);
+                stats->feedback_count[feedback.id]++;
             }
         }
     }
 }
 
-static int wait_for_all_feedback(int can_fd, ChassisController *controller, int timeout_ms)
+static int wait_for_all_feedback(int can_fd, ChassisController *controller, DaemonStats *stats, int timeout_ms)
 {
     uint64_t start = monotonic_ms();
     while ((monotonic_ms() - start) < (uint64_t)timeout_ms)
     {
-        drain_feedback(can_fd, controller);
+        drain_feedback(can_fd, controller, stats);
         if (chassis_feedback_all_online(controller, monotonic_ms()))
         {
             return 1;
@@ -158,7 +174,7 @@ static int open_udp_socket(const char *bind_ip, int port)
     return fd;
 }
 
-static void receive_commands(int udp_fd, ChassisController *controller, uint64_t now_ms)
+static void receive_commands(int udp_fd, ChassisController *controller, DaemonStats *stats, uint64_t now_ms)
 {
     for (;;)
     {
@@ -183,25 +199,43 @@ static void receive_commands(int udp_fd, ChassisController *controller, uint64_t
         int parsed = sscanf(buffer, " %f %f %f %c", &forward, &strafe, &rotate, &extra);
         if (parsed != 3)
         {
+            stats->invalid_command_count++;
             fprintf(stderr, "Ignored invalid command: %s\n", buffer);
             continue;
         }
 
         chassis_set_command(controller, forward, strafe, rotate, now_ms);
+        stats->udp_command_count++;
     }
+}
+
+static void update_online_stats(DaemonStats *stats, int online)
+{
+    if (stats->last_online == 1 && online == 0)
+    {
+        stats->online_drop_count++;
+    }
+    stats->last_online = online;
 }
 
 static void print_status(const ChassisController *controller,
                          const int16_t currents[CHASSIS_MOTOR_COUNT + 1U],
                          int online,
-                         uint64_t now_ms)
+                         uint64_t now_ms,
+                         const DaemonStats *stats)
 {
-    printf("online=%d age=%llums cmd=[%.2f %.2f %.2f] ",
+    printf("online=%d age=%llums cmd=[%.2f %.2f %.2f] udp=%llu rx=[%llu %llu %llu %llu] drops=%llu ",
            online,
-           (unsigned long long)(now_ms - controller->last_command_ms),
+           (unsigned long long)elapsed_ms(now_ms, controller->last_command_ms),
            controller->command.forward,
            controller->command.strafe,
-           controller->command.rotate);
+           controller->command.rotate,
+           (unsigned long long)stats->udp_command_count,
+           (unsigned long long)stats->feedback_count[1],
+           (unsigned long long)stats->feedback_count[2],
+           (unsigned long long)stats->feedback_count[3],
+           (unsigned long long)stats->feedback_count[4],
+           (unsigned long long)stats->online_drop_count);
 
     for (uint8_t i = 1U; i <= CHASSIS_MOTOR_COUNT; ++i)
     {
@@ -214,21 +248,58 @@ static void print_status(const ChassisController *controller,
     printf("\n");
 }
 
+static void write_csv(FILE *log_file,
+                      const ChassisController *controller,
+                      const int16_t currents[CHASSIS_MOTOR_COUNT + 1U],
+                      int online,
+                      uint64_t now_ms,
+                      const DaemonStats *stats)
+{
+    if (log_file == NULL)
+    {
+        return;
+    }
+
+    fprintf(log_file,
+            "%llu,%d,%llu,%.4f,%.4f,%.4f,"
+            "%.0f,%d,%d,%.0f,%d,%d,%.0f,%d,%d,%.0f,%d,%d,"
+            "%llu,%llu,%llu,%llu,%llu,%llu,%llu\n",
+            (unsigned long long)elapsed_ms(now_ms, stats->start_ms),
+            online,
+            (unsigned long long)elapsed_ms(now_ms, controller->last_command_ms),
+            controller->command.forward,
+            controller->command.strafe,
+            controller->command.rotate,
+            controller->target_rpm[1], controller->feedback[1].speed_rpm, currents[1],
+            controller->target_rpm[2], controller->feedback[2].speed_rpm, currents[2],
+            controller->target_rpm[3], controller->feedback[3].speed_rpm, currents[3],
+            controller->target_rpm[4], controller->feedback[4].speed_rpm, currents[4],
+            (unsigned long long)stats->udp_command_count,
+            (unsigned long long)stats->invalid_command_count,
+            (unsigned long long)stats->online_drop_count,
+            (unsigned long long)stats->feedback_count[1],
+            (unsigned long long)stats->feedback_count[2],
+            (unsigned long long)stats->feedback_count[3],
+            (unsigned long long)stats->feedback_count[4]);
+    fflush(log_file);
+}
+
 static void print_usage(const char *program)
 {
-    fprintf(stderr, "Usage: %s <can_ifname> [bind_ip] [udp_port] [max_translate_rpm] [max_rotate_rpm]\n", program);
-    fprintf(stderr, "Example: %s can0 127.0.0.1 20001 500 400\n", program);
+    fprintf(stderr, "Usage: %s <can_ifname> [bind_ip] [udp_port] [max_translate_rpm] [max_rotate_rpm] [csv_log]\n", program);
+    fprintf(stderr, "Example: %s can0 127.0.0.1 20001 500 400 ../docs/chassis_daemon_run.csv\n", program);
 }
 
 int main(int argc, char **argv)
 {
-    if (argc < 2 || argc > 6)
+    if (argc < 2 || argc > 7)
     {
         print_usage(argv[0]);
         return 2;
     }
 
     const char *bind_ip = (argc >= 3) ? argv[2] : DEFAULT_BIND_IP;
+    const char *csv_log_path = (argc >= 7) ? argv[6] : NULL;
     int udp_port = DEFAULT_UDP_PORT;
     ChassisConfig config;
     chassis_default_config(&config);
@@ -265,14 +336,40 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    FILE *log_file = NULL;
+    if (csv_log_path != NULL)
+    {
+        log_file = fopen(csv_log_path, "w");
+        if (log_file == NULL)
+        {
+            fprintf(stderr, "Failed to open CSV log %s: %s\n", csv_log_path, strerror(errno));
+            send_zero_current(can_fd);
+            close(udp_fd);
+            socketcan_close(can_fd);
+            return 1;
+        }
+        fprintf(log_file,
+                "elapsed_ms,online,command_age_ms,forward,strafe,rotate,"
+                "m1_target_rpm,m1_rpm,m1_current,m2_target_rpm,m2_rpm,m2_current,"
+                "m3_target_rpm,m3_rpm,m3_current,m4_target_rpm,m4_rpm,m4_current,"
+                "udp_commands,invalid_commands,online_drops,m1_feedback,m2_feedback,m3_feedback,m4_feedback\n");
+    }
+
     ChassisController controller;
     chassis_init(&controller, &config, monotonic_ms());
+    DaemonStats stats = {0};
+    stats.start_ms = monotonic_ms();
+    stats.last_online = -1;
 
     printf("Waiting for all motor feedback...\n");
-    if (!wait_for_all_feedback(can_fd, &controller, 1500))
+    if (!wait_for_all_feedback(can_fd, &controller, &stats, 1500))
     {
         fprintf(stderr, "Not all motors are online. Stop.\n");
         send_zero_current(can_fd);
+        if (log_file != NULL)
+        {
+            fclose(log_file);
+        }
         close(udp_fd);
         socketcan_close(can_fd);
         return 1;
@@ -286,6 +383,10 @@ int main(int argc, char **argv)
            config.max_rotate_rpm,
            config.command_timeout_ms);
     printf("Command format: <forward> <strafe> <rotate>. Press Ctrl+C to stop.\n");
+    if (csv_log_path != NULL)
+    {
+        printf("CSV logging enabled: %s\n", csv_log_path);
+    }
 
     int16_t currents[CHASSIS_MOTOR_COUNT + 1U] = {0};
     uint64_t last_loop_ms = monotonic_ms();
@@ -295,13 +396,14 @@ int main(int argc, char **argv)
     {
         uint64_t now = monotonic_ms();
 
-        receive_commands(udp_fd, &controller, now);
-        drain_feedback(can_fd, &controller);
+        receive_commands(udp_fd, &controller, &stats, now);
+        drain_feedback(can_fd, &controller, &stats);
 
         float dt_s = (float)(now - last_loop_ms) / 1000.0f;
         last_loop_ms = now;
 
         int online = chassis_step(&controller, now, dt_s, currents);
+        update_online_stats(&stats, online);
         if (!online)
         {
             for (uint8_t i = 0U; i <= CHASSIS_MOTOR_COUNT; ++i)
@@ -318,7 +420,8 @@ int main(int argc, char **argv)
 
         if ((now - last_print_ms) >= PRINT_PERIOD_MS)
         {
-            print_status(&controller, currents, online, now);
+            print_status(&controller, currents, online, now, &stats);
+            write_csv(log_file, &controller, currents, online, now, &stats);
             last_print_ms = now;
         }
 
@@ -328,6 +431,10 @@ int main(int argc, char **argv)
     printf("\nSending zero current...\n");
     chassis_stop(&controller, monotonic_ms());
     send_zero_current(can_fd);
+    if (log_file != NULL)
+    {
+        fclose(log_file);
+    }
     close(udp_fd);
     socketcan_close(can_fd);
     printf("chassis_daemon stopped.\n");

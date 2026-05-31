@@ -36,6 +36,19 @@ static uint64_t elapsed_ms(uint64_t now_ms, uint64_t previous_ms)
     return (now_ms >= previous_ms) ? (now_ms - previous_ms) : 0U;
 }
 
+static void reset_motion_state(ChassisController *controller)
+{
+    controller->command.forward = 0.0f;
+    controller->command.strafe = 0.0f;
+    controller->command.rotate = 0.0f;
+
+    for (uint8_t i = 1U; i <= CHASSIS_MOTOR_COUNT; ++i)
+    {
+        controller->target_rpm[i] = 0.0f;
+        pid_reset(&controller->pid[i]);
+    }
+}
+
 static void normalize_wheel_targets(float target[CHASSIS_MOTOR_COUNT + 1U], float max_abs_rpm)
 {
     float peak = abs_float(target[1]);
@@ -155,12 +168,8 @@ void chassis_stop(ChassisController *controller, uint64_t now_ms)
         return;
     }
 
-    chassis_set_command(controller, 0.0f, 0.0f, 0.0f, now_ms);
-    for (uint8_t i = 1U; i <= CHASSIS_MOTOR_COUNT; ++i)
-    {
-        controller->target_rpm[i] = 0.0f;
-        pid_reset(&controller->pid[i]);
-    }
+    controller->last_command_ms = now_ms;
+    reset_motion_state(controller);
 }
 
 void chassis_update_feedback(ChassisController *controller, const Motor3508Feedback *feedback)
@@ -218,12 +227,12 @@ int chassis_step(ChassisController *controller,
 
     if ((float)elapsed_ms(now_ms, controller->last_command_ms) > controller->config.command_timeout_ms)
     {
-        chassis_stop(controller, now_ms);
+        reset_motion_state(controller);
     }
 
     if (command_is_zero(&controller->command))
     {
-        chassis_stop(controller, now_ms);
+        reset_motion_state(controller);
         return chassis_feedback_all_online(controller, now_ms);
     }
 
