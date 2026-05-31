@@ -169,6 +169,27 @@ For the next integration step, use the normalized velocity interface. It accepts
 
 This is the preferred interface for later ROS2 or RT-Thread bridge work.
 
+## Long-running Chassis Daemon
+
+After validating `chassis_velocity`, run the persistent UDP service:
+
+```bash
+./chassis_daemon can0
+```
+
+In another terminal, send normalized velocity commands:
+
+```bash
+python3 ../tools/send_velocity.py 0.4 0.0 0.0 --duration-ms 3000
+python3 ../tools/send_velocity.py 0.0 0.4 0.0 --duration-ms 3000
+python3 ../tools/send_velocity.py 0.0 0.0 0.3 --duration-ms 3000
+```
+
+The default UDP endpoint is `127.0.0.1:20001`. The daemon keeps a 100 Hz
+control loop and stops the chassis if it receives no new command for 300 ms.
+
+See `docs/chassis_daemon.md`.
+
 ## Record Results
 
 After testing, fill in `docs/motor_mapping.md`:

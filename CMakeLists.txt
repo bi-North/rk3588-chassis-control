@@ -62,3 +62,9 @@ add_executable(chassis_velocity
 )
 target_link_libraries(chassis_velocity PRIVATE chassis_core)
 target_compile_options(chassis_velocity PRIVATE -Wall -Wextra -Wpedantic)
+
+add_executable(chassis_daemon
+    tools/chassis_daemon.c
+)
+target_link_libraries(chassis_daemon PRIVATE chassis_core)
+target_compile_options(chassis_daemon PRIVATE -Wall -Wextra -Wpedantic)
