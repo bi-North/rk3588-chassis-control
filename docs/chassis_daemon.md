@@ -34,12 +34,19 @@ Expected startup output:
 
 ```text
 Waiting for all motor feedback...
-chassis_daemon listening on udp://127.0.0.1:20001 can=can0 max_translate=500 max_rotate=400 timeout=300ms
+chassis_daemon listening on udp://127.0.0.1:20001 can=can0 max_translate=500 max_rotate=400 timeout=300ms boost=0.75/250ms min=0.20
 ```
 
 The daemon prints the latest command, command age, wheel target rpm, actual rpm,
 current command, UDP command count, per-motor feedback count, and online drop
 count.
+
+The status line also includes:
+
+```text
+boost=1  bounded startup compensation is active
+boost=0  normal closed-loop speed control is active
+```
 
 To write a CSV log while the daemon runs:
 

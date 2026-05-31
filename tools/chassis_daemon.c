@@ -224,9 +224,10 @@ static void print_status(const ChassisController *controller,
                          uint64_t now_ms,
                          const DaemonStats *stats)
 {
-    printf("online=%d age=%llums cmd=[%.2f %.2f %.2f] udp=%llu rx=[%llu %llu %llu %llu] drops=%llu ",
+    printf("online=%d age=%llums boost=%u cmd=[%.2f %.2f %.2f] udp=%llu rx=[%llu %llu %llu %llu] drops=%llu ",
            online,
            (unsigned long long)elapsed_ms(now_ms, controller->last_command_ms),
+           controller->startup_boost_active,
            controller->command.forward,
            controller->command.strafe,
            controller->command.rotate,
@@ -261,12 +262,13 @@ static void write_csv(FILE *log_file,
     }
 
     fprintf(log_file,
-            "%llu,%d,%llu,%.4f,%.4f,%.4f,"
+            "%llu,%d,%llu,%u,%.4f,%.4f,%.4f,"
             "%.0f,%d,%d,%.0f,%d,%d,%.0f,%d,%d,%.0f,%d,%d,"
             "%llu,%llu,%llu,%llu,%llu,%llu,%llu\n",
             (unsigned long long)elapsed_ms(now_ms, stats->start_ms),
             online,
             (unsigned long long)elapsed_ms(now_ms, controller->last_command_ms),
+            controller->startup_boost_active,
             controller->command.forward,
             controller->command.strafe,
             controller->command.rotate,
@@ -349,7 +351,7 @@ int main(int argc, char **argv)
             return 1;
         }
         fprintf(log_file,
-                "elapsed_ms,online,command_age_ms,forward,strafe,rotate,"
+                "elapsed_ms,online,command_age_ms,startup_boost,forward,strafe,rotate,"
                 "m1_target_rpm,m1_rpm,m1_current,m2_target_rpm,m2_rpm,m2_current,"
                 "m3_target_rpm,m3_rpm,m3_current,m4_target_rpm,m4_rpm,m4_current,"
                 "udp_commands,invalid_commands,online_drops,m1_feedback,m2_feedback,m3_feedback,m4_feedback\n");
@@ -375,13 +377,16 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    printf("chassis_daemon listening on udp://%s:%d can=%s max_translate=%.0f max_rotate=%.0f timeout=%.0fms\n",
+    printf("chassis_daemon listening on udp://%s:%d can=%s max_translate=%.0f max_rotate=%.0f timeout=%.0fms boost=%.2f/%.0fms min=%.2f\n",
            bind_ip,
            udp_port,
            argv[1],
            config.max_translate_rpm,
            config.max_rotate_rpm,
-           config.command_timeout_ms);
+           config.command_timeout_ms,
+           config.startup_boost_scale,
+           config.startup_boost_ms,
+           config.startup_boost_min_command);
     printf("Command format: <forward> <strafe> <rotate>. Press Ctrl+C to stop.\n");
     if (csv_log_path != NULL)
     {
