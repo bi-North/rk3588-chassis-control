@@ -24,6 +24,11 @@ static float abs_float(float value)
     return (value >= 0.0f) ? value : -value;
 }
 
+static uint64_t elapsed_ms(uint64_t now_ms, uint64_t previous_ms)
+{
+    return (now_ms >= previous_ms) ? (now_ms - previous_ms) : 0U;
+}
+
 static void normalize_wheel_targets(float target[CHASSIS_MOTOR_COUNT + 1U], float max_abs_rpm)
 {
     float peak = abs_float(target[1]);
@@ -180,7 +185,7 @@ int chassis_feedback_all_online(const ChassisController *controller, uint64_t no
         {
             return 0;
         }
-        if ((float)(now_ms - feedback->last_update_ms) > controller->config.feedback_timeout_ms)
+        if ((float)elapsed_ms(now_ms, feedback->last_update_ms) > controller->config.feedback_timeout_ms)
         {
             return 0;
         }
@@ -204,7 +209,7 @@ int chassis_step(ChassisController *controller,
         currents[i] = 0;
     }
 
-    if ((float)(now_ms - controller->last_command_ms) > controller->config.command_timeout_ms)
+    if ((float)elapsed_ms(now_ms, controller->last_command_ms) > controller->config.command_timeout_ms)
     {
         controller->command.forward = 0.0f;
         controller->command.strafe = 0.0f;

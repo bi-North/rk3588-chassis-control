@@ -194,8 +194,8 @@ After validating `chassis_velocity`, run the persistent UDP service:
 In another terminal, send normalized velocity commands:
 
 ```bash
-python3 ../tools/send_velocity.py 0.4 0.0 0.0 --duration-ms 3000
-python3 ../tools/send_velocity.py 0.0 0.4 0.0 --duration-ms 3000
+python3 ../tools/send_velocity.py 0.8 0.0 0.0 --duration-ms 3000
+python3 ../tools/send_velocity.py 0.0 0.8 0.0 --duration-ms 3000
 python3 ../tools/send_velocity.py 0.0 0.0 0.3 --duration-ms 3000
 ```
 

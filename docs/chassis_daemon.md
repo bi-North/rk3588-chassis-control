@@ -49,13 +49,13 @@ cd ~/projects/rk3588-chassis-control/build
 Forward:
 
 ```bash
-python3 ../tools/send_velocity.py 0.4 0.0 0.0 --duration-ms 3000
+python3 ../tools/send_velocity.py 0.8 0.0 0.0 --duration-ms 3000
 ```
 
 Right strafe:
 
 ```bash
-python3 ../tools/send_velocity.py 0.0 0.4 0.0 --duration-ms 3000
+python3 ../tools/send_velocity.py 0.0 0.8 0.0 --duration-ms 3000
 ```
 
 Left rotation:

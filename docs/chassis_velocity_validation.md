@@ -16,6 +16,10 @@ This document records the current RK3588 Linux chassis velocity validation.
 Basic chassis movement has been manually verified after the forward direction
 fix and a clean rebuild.
 
+The initial loaded-chassis validation required a command scale of `0.8`.
+Scale `0.4` did not reliably start the wheels. Low-speed loaded startup remains
+an optimization item for a later stage.
+
 Command convention:
 
 ```text
@@ -45,25 +49,25 @@ cd ~/projects/rk3588-chassis-control && git pull && cd build && cmake --build . 
 Forward:
 
 ```bash
-./chassis_velocity can0 0.4 0.0 0.0 3000 500 400
+./chassis_velocity can0 0.8 0.0 0.0 3000 500 400
 ```
 
 Backward:
 
 ```bash
-./chassis_velocity can0 -0.4 0.0 0.0 3000 500 400
+./chassis_velocity can0 -0.8 0.0 0.0 3000 500 400
 ```
 
 Right strafe:
 
 ```bash
-./chassis_velocity can0 0.0 0.4 0.0 3000 500 400
+./chassis_velocity can0 0.0 0.8 0.0 3000 500 400
 ```
 
 Left strafe:
 
 ```bash
-./chassis_velocity can0 0.0 -0.4 0.0 3000 500 400
+./chassis_velocity can0 0.0 -0.8 0.0 3000 500 400
 ```
 
 Left rotation:
