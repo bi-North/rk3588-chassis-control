@@ -24,6 +24,13 @@ static float abs_float(float value)
     return (value >= 0.0f) ? value : -value;
 }
 
+static int command_is_zero(const ChassisCommand *command)
+{
+    return abs_float(command->forward) < 0.0001f &&
+           abs_float(command->strafe) < 0.0001f &&
+           abs_float(command->rotate) < 0.0001f;
+}
+
 static uint64_t elapsed_ms(uint64_t now_ms, uint64_t previous_ms)
 {
     return (now_ms >= previous_ms) ? (now_ms - previous_ms) : 0U;
@@ -211,9 +218,13 @@ int chassis_step(ChassisController *controller,
 
     if ((float)elapsed_ms(now_ms, controller->last_command_ms) > controller->config.command_timeout_ms)
     {
-        controller->command.forward = 0.0f;
-        controller->command.strafe = 0.0f;
-        controller->command.rotate = 0.0f;
+        chassis_stop(controller, now_ms);
+    }
+
+    if (command_is_zero(&controller->command))
+    {
+        chassis_stop(controller, now_ms);
+        return chassis_feedback_all_online(controller, now_ms);
     }
 
     update_targets_from_command(controller);

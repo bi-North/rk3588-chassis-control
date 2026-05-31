@@ -9,6 +9,8 @@ UDP.
 - The daemon waits until all four motors report feedback.
 - If any motor feedback times out, all current commands are set to zero.
 - If no new velocity command arrives for 300 ms, the chassis stops.
+- A zero velocity command resets the speed PID state and sends zero current.
+  The chassis does not actively resist manual movement while stopped.
 - When the daemon exits, it sends zero current repeatedly.
 - The default UDP bind address is `127.0.0.1`, so only local programs can
   control the chassis during the first validation.
