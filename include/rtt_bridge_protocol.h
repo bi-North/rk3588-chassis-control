@@ -15,6 +15,7 @@ extern "C" {
 #define RTT_BRIDGE_MSG_CHASSIS_STATE 2U
 #define RTT_BRIDGE_MSG_HEARTBEAT 3U
 #define RTT_BRIDGE_MSG_ESTOP 4U
+#define RTT_BRIDGE_MSG_CURRENT_COMMAND 5U
 
 #define RTT_BRIDGE_FLAG_ESTOP 0x0001U
 
@@ -50,6 +51,12 @@ typedef struct
     uint16_t online_mask;
     uint16_t fault_mask;
 } RttBridgeChassisState;
+
+typedef struct
+{
+    int16_t current_command[4];
+    uint16_t timeout_ms;
+} RttBridgeCurrentCommand;
 
 #ifdef __cplusplus
 }

@@ -68,3 +68,9 @@ add_executable(chassis_daemon
 )
 target_link_libraries(chassis_daemon PRIVATE chassis_core)
 target_compile_options(chassis_daemon PRIVATE -Wall -Wextra -Wpedantic)
+
+add_executable(can_proxy
+    tools/can_proxy.c
+)
+target_link_libraries(can_proxy PRIVATE chassis_core)
+target_compile_options(can_proxy PRIVATE -Wall -Wextra -Wpedantic)
