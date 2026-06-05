@@ -10,6 +10,8 @@
 #define RTT_UDP_ECHO_THREAD_STACK_SIZE 2048
 #define RTT_UDP_ECHO_THREAD_PRIORITY 20
 #define RTT_UDP_ECHO_THREAD_TICK 10
+#define RTT_UDP_ECHO_AUTOSTART_DELAY_MS 5000
+#define RTT_UDP_ECHO_AUTOSTART_STACK_SIZE 1024
 
 static rt_thread_t echo_thread;
 
@@ -106,3 +108,34 @@ static int rtt_udp_echo_start(void)
     return 0;
 }
 MSH_CMD_EXPORT(rtt_udp_echo_start, start the RK3588 chassis UDP echo endpoint);
+
+static void rtt_udp_echo_autostart_entry(void *parameter)
+{
+    RT_UNUSED(parameter);
+
+    rt_thread_mdelay(RTT_UDP_ECHO_AUTOSTART_DELAY_MS);
+    rt_kprintf("rtt_udp_echo: autostart after %d ms\n", RTT_UDP_ECHO_AUTOSTART_DELAY_MS);
+    rtt_udp_echo_start();
+}
+
+static int rtt_udp_echo_autostart(void)
+{
+    rt_thread_t thread;
+
+    thread = rt_thread_create(
+        "udp_echo_a",
+        rtt_udp_echo_autostart_entry,
+        RT_NULL,
+        RTT_UDP_ECHO_AUTOSTART_STACK_SIZE,
+        RTT_UDP_ECHO_THREAD_PRIORITY + 1,
+        RTT_UDP_ECHO_THREAD_TICK);
+    if (thread == RT_NULL)
+    {
+        rt_kprintf("rtt_udp_echo: autostart thread failed\n");
+        return -RT_ERROR;
+    }
+
+    rt_thread_startup(thread);
+    return 0;
+}
+INIT_APP_EXPORT(rtt_udp_echo_autostart);
