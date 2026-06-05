@@ -11,6 +11,7 @@
 #define RTT_UDP_ECHO_THREAD_PRIORITY 20
 #define RTT_UDP_ECHO_THREAD_TICK 10
 #define RTT_UDP_ECHO_AUTOSTART_DELAY_MS 5000
+#define RTT_UDP_ECHO_AUTOSTART_RETRY_MS 2000
 #define RTT_UDP_ECHO_AUTOSTART_STACK_SIZE 1024
 
 static rt_thread_t echo_thread;
@@ -114,8 +115,19 @@ static void rtt_udp_echo_autostart_entry(void *parameter)
     RT_UNUSED(parameter);
 
     rt_thread_mdelay(RTT_UDP_ECHO_AUTOSTART_DELAY_MS);
-    rt_kprintf("rtt_udp_echo: autostart after %d ms\n", RTT_UDP_ECHO_AUTOSTART_DELAY_MS);
-    rtt_udp_echo_start();
+    rt_kprintf("rtt_udp_echo: autostart begin after %d ms\n", RTT_UDP_ECHO_AUTOSTART_DELAY_MS);
+
+    while (echo_thread == RT_NULL)
+    {
+        rtt_udp_echo_start();
+        rt_thread_mdelay(RTT_UDP_ECHO_AUTOSTART_RETRY_MS);
+        if (echo_thread == RT_NULL)
+        {
+            rt_kprintf("rtt_udp_echo: autostart retry in %d ms\n", RTT_UDP_ECHO_AUTOSTART_RETRY_MS);
+        }
+    }
+
+    rt_kprintf("rtt_udp_echo: autostart ready\n");
 }
 
 static int rtt_udp_echo_autostart(void)
