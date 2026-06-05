@@ -13,8 +13,13 @@
 #define RTT_UDP_ECHO_AUTOSTART_DELAY_MS 5000
 #define RTT_UDP_ECHO_AUTOSTART_RETRY_MS 2000
 #define RTT_UDP_ECHO_AUTOSTART_STACK_SIZE 1024
+#define RTT_UDP_BEACON_PEER "10.10.10.31"
+#define RTT_UDP_BEACON_PORT 21002
+#define RTT_UDP_BEACON_PERIOD_MS 2000
+#define RTT_UDP_BEACON_STACK_SIZE 1536
 
 static rt_thread_t echo_thread;
+static rt_thread_t beacon_thread;
 
 static void rtt_udp_echo_entry(void *parameter)
 {
@@ -110,12 +115,78 @@ static int rtt_udp_echo_start(void)
 }
 MSH_CMD_EXPORT(rtt_udp_echo_start, start the RK3588 chassis UDP echo endpoint);
 
+static void rtt_udp_beacon_entry(void *parameter)
+{
+    const char message[] = "rtt_udp_echo_beacon";
+    struct sockaddr_in peer_address;
+
+    RT_UNUSED(parameter);
+
+    memset(&peer_address, 0, sizeof(peer_address));
+    peer_address.sin_family = AF_INET;
+    peer_address.sin_port = htons(RTT_UDP_BEACON_PORT);
+    peer_address.sin_addr.s_addr = inet_addr(RTT_UDP_BEACON_PEER);
+
+    while (1)
+    {
+        int sock = socket(AF_INET, SOCK_DGRAM, 0);
+        if (sock < 0)
+        {
+            rt_kprintf("rtt_udp_beacon: socket failed\n");
+        }
+        else
+        {
+            int sent = sendto(
+                sock,
+                message,
+                sizeof(message) - 1,
+                0,
+                (struct sockaddr *)&peer_address,
+                sizeof(peer_address));
+            if (sent < 0)
+            {
+                rt_kprintf("rtt_udp_beacon: sendto %s:%d failed\n", RTT_UDP_BEACON_PEER, RTT_UDP_BEACON_PORT);
+            }
+            closesocket(sock);
+        }
+
+        rt_thread_mdelay(RTT_UDP_BEACON_PERIOD_MS);
+    }
+}
+
+static int rtt_udp_beacon_start(void)
+{
+    if (beacon_thread != RT_NULL)
+    {
+        rt_kprintf("rtt_udp_beacon: already running\n");
+        return 0;
+    }
+
+    beacon_thread = rt_thread_create(
+        "udp_beacon",
+        rtt_udp_beacon_entry,
+        RT_NULL,
+        RTT_UDP_BEACON_STACK_SIZE,
+        RTT_UDP_ECHO_THREAD_PRIORITY + 2,
+        RTT_UDP_ECHO_THREAD_TICK);
+    if (beacon_thread == RT_NULL)
+    {
+        rt_kprintf("rtt_udp_beacon: create thread failed\n");
+        return -RT_ERROR;
+    }
+
+    rt_thread_startup(beacon_thread);
+    return 0;
+}
+MSH_CMD_EXPORT(rtt_udp_beacon_start, start the RK3588 chassis UDP beacon endpoint);
+
 static void rtt_udp_echo_autostart_entry(void *parameter)
 {
     RT_UNUSED(parameter);
 
     rt_thread_mdelay(RTT_UDP_ECHO_AUTOSTART_DELAY_MS);
     rt_kprintf("rtt_udp_echo: autostart begin after %d ms\n", RTT_UDP_ECHO_AUTOSTART_DELAY_MS);
+    rtt_udp_beacon_start();
 
     while (echo_thread == RT_NULL)
     {
