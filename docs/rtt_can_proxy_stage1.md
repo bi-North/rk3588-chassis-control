@@ -8,7 +8,7 @@ RT-Thread through a small UDP bridge.
 ```text
 RT-Thread rtt_chassis_bridge
         |
-        | UDP over ivshmem-nic, 10.10.10.30 <-> 10.10.10.31
+        | UDP over ivshmem-nic, 10.10.10.30:21003 -> 10.10.10.31:21001
         v
 Linux can_proxy
         |
@@ -54,6 +54,10 @@ Copy these files into the vendor RT-Thread project:
 rtthread_port/rtt_chassis_bridge.c -> applications/rtt_chassis_bridge.c
 rtthread_port/main_with_chassis_bridge.c -> applications/main.c
 ```
+
+The RT-Thread bridge binds local UDP port `21003` and sends to Linux port
+`21001`. This avoids the earlier UDP echo probe, which may still bind RT-side
+port `21001` in some vendor workspaces.
 
 Then rebuild `rtthread.bin`, rebuild `HyperBoot.bin`, replace
 `/boot/HyperBoot.bin`, and reboot.

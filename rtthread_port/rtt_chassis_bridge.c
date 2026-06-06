@@ -15,13 +15,14 @@
 #define RTT_BRIDGE_HEADER_SIZE 20U
 #define RTT_BRIDGE_STATE_PAYLOAD_SIZE 28U
 #define RTT_BRIDGE_CURRENT_PAYLOAD_SIZE 10U
-#define RTT_BRIDGE_LOCAL_PORT 21001
+#define RTT_BRIDGE_LOCAL_PORT 21003
 #define RTT_BRIDGE_LINUX_IP "10.10.10.31"
 #define RTT_BRIDGE_LINUX_PORT 21001
 #define RTT_BRIDGE_THREAD_STACK_SIZE 4096
 #define RTT_BRIDGE_THREAD_PRIORITY 18
 #define RTT_BRIDGE_THREAD_TICK 10
 #define RTT_BRIDGE_START_DELAY_MS 5000
+#define RTT_BRIDGE_SOCKET_RETRY_MS 1000
 #define RTT_BRIDGE_PERIOD_MS 20
 #define RTT_BRIDGE_PRINT_PERIOD_MS 1000
 
@@ -176,29 +177,35 @@ static void rtt_chassis_bridge_entry(void *parameter)
 
     rt_thread_mdelay(RTT_BRIDGE_START_DELAY_MS);
 
-    sock = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sock < 0)
+    for (;;)
     {
-        rt_kprintf("rtt_chassis_bridge: socket failed\n");
-        bridge_thread = RT_NULL;
-        return;
-    }
+        sock = socket(AF_INET, SOCK_DGRAM, 0);
+        if (sock < 0)
+        {
+            rt_kprintf("rtt_chassis_bridge: socket failed, retry in %d ms\n", RTT_BRIDGE_SOCKET_RETRY_MS);
+            rt_thread_mdelay(RTT_BRIDGE_SOCKET_RETRY_MS);
+            continue;
+        }
 
-    timeout.tv_sec = 0;
-    timeout.tv_usec = 1000;
-    (void)setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+        timeout.tv_sec = 0;
+        timeout.tv_usec = 1000;
+        (void)setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
 
-    rt_memset(&local_address, 0, sizeof(local_address));
-    local_address.sin_family = AF_INET;
-    local_address.sin_port = htons(RTT_BRIDGE_LOCAL_PORT);
-    local_address.sin_addr.s_addr = htonl(INADDR_ANY);
+        rt_memset(&local_address, 0, sizeof(local_address));
+        local_address.sin_family = AF_INET;
+        local_address.sin_port = htons(RTT_BRIDGE_LOCAL_PORT);
+        local_address.sin_addr.s_addr = htonl(INADDR_ANY);
 
-    if (bind(sock, (struct sockaddr *)&local_address, sizeof(local_address)) < 0)
-    {
-        rt_kprintf("rtt_chassis_bridge: bind udp/%d failed\n", RTT_BRIDGE_LOCAL_PORT);
+        if (bind(sock, (struct sockaddr *)&local_address, sizeof(local_address)) == 0)
+        {
+            break;
+        }
+
+        rt_kprintf("rtt_chassis_bridge: bind udp/%d failed, retry in %d ms\n",
+                   RTT_BRIDGE_LOCAL_PORT,
+                   RTT_BRIDGE_SOCKET_RETRY_MS);
         closesocket(sock);
-        bridge_thread = RT_NULL;
-        return;
+        rt_thread_mdelay(RTT_BRIDGE_SOCKET_RETRY_MS);
     }
 
     rt_memset(&linux_address, 0, sizeof(linux_address));
